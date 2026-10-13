@@ -57,6 +57,16 @@ func validateRam(gb int) error {
 	return nil
 }
 
+// validateConfigPath rejects config requests for files the config endpoints
+// cannot parse. Only .properties and .dat files are supported.
+func validateConfigPath(p string) error {
+	lower := strings.ToLower(strings.TrimSuffix(p, "/"))
+	if strings.HasSuffix(lower, ".properties") || strings.HasSuffix(lower, ".dat") {
+		return nil
+	}
+	return fmt.Errorf("unsupported config file extension %q: must be .properties or .dat", p)
+}
+
 func (s *ServerRef) validate() error {
 	if s == nil || s.client == nil {
 		return fmt.Errorf("invalid server reference")

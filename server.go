@@ -716,9 +716,11 @@ type Config struct {
 }
 
 // Config fetches parsed config options. Only .properties and .dat files are supported.
-// TODO: Create detection if they are trying to update a config file with an unsupported extension
 func (f *FileRef) Config(ctx context.Context) ([]Config, error) {
 	if err := f.validate(); err != nil {
+		return nil, err
+	}
+	if err := validateConfigPath(f.path); err != nil {
 		return nil, err
 	}
 	path := fmt.Sprintf("servers/%s/files/config/%s", f.serverID, escapeFilePath(f.path))
@@ -746,8 +748,12 @@ func (f *FileRef) UpdateConfig(ctx context.Context, config map[string]string) ([
 }
 
 // UpdateConfigValues updates config options with arbitrary JSON values.
+// Only .properties and .dat files are supported.
 func (f *FileRef) UpdateConfigValues(ctx context.Context, config map[string]any) ([]Config, error) {
 	if err := f.validate(); err != nil {
+		return nil, err
+	}
+	if err := validateConfigPath(f.path); err != nil {
 		return nil, err
 	}
 	path := fmt.Sprintf("servers/%s/files/config/%s", f.serverID, escapeFilePath(f.path))
