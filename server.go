@@ -81,6 +81,10 @@ type Software struct {
 
 	// Software version (e.g., 1.16.5)
 	Version string `json:"version"`
+
+	// Software type slug (e.g., "hytale", "vanilla"). Omitted in older
+	// spec examples but present in live responses; empty if absent.
+	Type string `json:"type,omitempty"`
 }
 
 // Status is the numeric server status returned by the API.
@@ -715,12 +719,11 @@ type Config struct {
 	Options []string `json:"options,omitempty"`
 }
 
-// Config fetches parsed config options. Only .properties and .dat files are supported.
+// Config fetches parsed config options. Whether a file is parseable is
+// decided by the backend; check File.IsConfigFile from Info() first.
+// Paths are passed through (e.g. "server.properties", Hytale "config.json").
 func (f *FileRef) Config(ctx context.Context) ([]Config, error) {
 	if err := f.validate(); err != nil {
-		return nil, err
-	}
-	if err := validateConfigPath(f.path); err != nil {
 		return nil, err
 	}
 	path := fmt.Sprintf("servers/%s/files/config/%s", f.serverID, escapeFilePath(f.path))
@@ -748,12 +751,10 @@ func (f *FileRef) UpdateConfig(ctx context.Context, config map[string]string) ([
 }
 
 // UpdateConfigValues updates config options with arbitrary JSON values.
-// Only .properties and .dat files are supported.
+// Whether a file is parseable is decided by the backend;
+// check File.IsConfigFile from Info() first.
 func (f *FileRef) UpdateConfigValues(ctx context.Context, config map[string]any) ([]Config, error) {
 	if err := f.validate(); err != nil {
-		return nil, err
-	}
-	if err := validateConfigPath(f.path); err != nil {
 		return nil, err
 	}
 	path := fmt.Sprintf("servers/%s/files/config/%s", f.serverID, escapeFilePath(f.path))
