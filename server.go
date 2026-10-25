@@ -57,6 +57,10 @@ type Server struct {
 
 	// Whether the server is shared
 	Shared bool `json:"shared"`
+
+	// Permissions your account has on this server via Share Access.
+	// Always nil when you own the server.
+	Permissions []string `json:"permissions"`
 }
 
 // Players summarizes online player state.
@@ -71,7 +75,7 @@ type Players struct {
 	List []string `json:"list"`
 }
 
-// Software describes the server software.
+// Software describes available or installed server software.
 type Software struct {
 	// Unique software ID
 	ID string `json:"id"`
@@ -82,9 +86,18 @@ type Software struct {
 	// Software version (e.g., 1.16.5)
 	Version string `json:"version"`
 
-	// Software type slug (e.g., "hytale", "vanilla"). Omitted in older
+	// Software type slug (e.g. SoftwareTypeVanilla). Omitted in older
 	// spec examples but present in live responses; empty if absent.
-	Type string `json:"type,omitempty"`
+	Type SoftwareType `json:"type,omitempty"`
+
+	// Launcher this software belongs to, only set for modpacks/plugins that
+	// require a specific launcher.
+	Launcher *SoftwareLauncher `json:"launcher,omitempty"`
+
+	// Addon types (e.g. "mod", "plugin") supported by this software. Only
+	// populated for software installed on a server; absent in the global
+	// software list.
+	Addons []string `json:"addons,omitempty"`
 }
 
 // Status is the numeric server status returned by the API.
@@ -153,6 +166,64 @@ func (s *ServerRef) GetServer(ctx context.Context) (*Server, error) {
 	}
 
 	return resp.Data, nil
+}
+
+// Region identifies the region a server is created in.
+type Region string
+
+const (
+	RegionEU Region = "eu"
+	RegionNA Region = "na"
+)
+
+// CreateServerOptions configures CreateServer. Name is required. Provide
+// either Software (a software ID) or SoftwareType to choose the initial
+// software; Software takes precedence when both are set. Region may be left
+// empty or set to an unknown value, in which case the API chooses a region
+// based on the timezone.
+type CreateServerOptions struct {
+	Name string `json:"name"`
+
+	// ID of the software to install. See ListSoftware for options.
+	Software string `json:"software,omitempty"`
+
+	// Latest version of a software type, e.g. SoftwareTypeVanilla.
+	SoftwareType SoftwareType `json:"softwareType,omitempty"`
+
+	MOTD     string `json:"motd,omitempty"`
+	Timezone string `json:"timezone,omitempty"`
+	Region   Region `json:"region,omitempty"`
+}
+
+// CreateServer creates a new server owned by the account. A 413 response
+// (server limit reached) surfaces as *ApiError with StatusCode 413.
+func (c *Client) CreateServer(ctx context.Context, opts CreateServerOptions) (*Server, error) {
+	if err := validateCreateServer(opts); err != nil {
+		return nil, err
+	}
+
+	// Mirror SetMOTD: ampersands are converted to section signs.
+	opts.MOTD = strings.ReplaceAll(opts.MOTD, "&", "§")
+
+	path := "servers"
+	var resp RawResponse[Server]
+
+	err := c.sendRequest(ctx, http.MethodPost, path, opts, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.Data, nil
+}
+
+// DeleteServer permanently deletes the server and all of its files. The API
+// only allows this for the owner and while the server is offline or crashed.
+func (s *ServerRef) DeleteServer(ctx context.Context) error {
+	if err := s.validate(); err != nil {
+		return err
+	}
+	path := fmt.Sprintf("servers/%s", s.serverID)
+	return s.client.sendEmptyRequest(ctx, http.MethodDelete, path, nil, "application/json")
 }
 
 // Logs holds raw server log content.

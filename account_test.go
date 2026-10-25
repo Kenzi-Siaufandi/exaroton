@@ -34,8 +34,8 @@ func TestGetAccount(t *testing.T) {
 			t.Errorf("path = %q", r.URL.Path)
 		}
 		encodeEnvelope(t, w, true, nil, map[string]any{
-			"name": "example", "email": "example@exaroton.com",
-			"verified": true, "credits": 42.05,
+			"id": "EwYiY9IAMtQBTb6s", "name": "example", "email": "example@exaroton.com",
+			"maxServers": 10, "verified": true, "credits": 42.05,
 		})
 	})
 
@@ -43,8 +43,11 @@ func TestGetAccount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if a.Name != "example" || !a.Verified || a.Credits != 42.05 {
+	if a.ID != "EwYiY9IAMtQBTb6s" || a.Name != "example" || !a.Verified || a.Credits != 42.05 {
 		t.Fatalf("unexpected account: %+v", a)
+	}
+	if a.MaxServers != 10 {
+		t.Fatalf("MaxServers = %d", a.MaxServers)
 	}
 }
 

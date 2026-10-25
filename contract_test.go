@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	testServerID = "EwYiY9IAMtQBTb6U"
-	testPoolID   = "X4iJREgqBGFSBtn0"
+	testServerID   = "EwYiY9IAMtQBTb6U"
+	testPoolID     = "X4iJREgqBGFSBtn0"
+	testSoftwareID = "wdZhC3v1udSOxR1d"
 )
 
 func TestApiErrorTyped(t *testing.T) {
@@ -150,7 +151,7 @@ func TestFileWriteEmptyResponse(t *testing.T) {
 
 func TestHandModelsRoundTrip(t *testing.T) {
 	// Spec example server must decode into the shipped hand-written types.
-	raw := `{"id":"EwYiY9IAMtQBTb6U","name":"example","address":"example.exaroton.me","motd":"hi","status":1,"host":null,"port":null,"players":{"max":20,"count":0,"list":[]},"software":{"id":"kb4p09ABvLjxzedx","name":"Vanilla","version":"1.16.5"},"shared":false}`
+	raw := `{"id":"EwYiY9IAMtQBTb6U","name":"example","address":"example.exaroton.me","motd":"hi","status":1,"host":null,"port":null,"players":{"max":20,"count":0,"list":[]},"software":{"id":"kb4p09ABvLjxzedx","name":"Vanilla","version":"1.16.5","type":"vanilla","launcher":null,"addons":["plugin"]},"shared":false,"permissions":["console"]}`
 	var s Server
 	if err := json.Unmarshal([]byte(raw), &s); err != nil {
 		t.Fatal(err)
@@ -163,6 +164,12 @@ func TestHandModelsRoundTrip(t *testing.T) {
 	}
 	if s.Players.Max != 20 || s.Software.Version != "1.16.5" {
 		t.Fatalf("unexpected players/software: %+v", s)
+	}
+	if len(s.Software.Addons) != 1 || s.Software.Addons[0] != "plugin" {
+		t.Fatalf("unexpected software addons: %+v", s.Software)
+	}
+	if len(s.Permissions) != 1 || s.Permissions[0] != "console" {
+		t.Fatalf("unexpected permissions: %+v", s.Permissions)
 	}
 	var fi File
 	if err := json.Unmarshal([]byte(`{"path":"world/playerdata","name":"playerdata","isDirectory":true,"size":4096}`), &fi); err != nil {

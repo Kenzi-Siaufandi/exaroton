@@ -8,11 +8,17 @@ import (
 
 // Account describes the API account.
 type Account struct {
+	// Unique account ID.
+	ID string `json:"id"`
+
 	// The username of the account.
 	Name string `json:"name"`
 
 	// The registered email address.
 	Email string `json:"email"`
+
+	// Maximum number of servers this account can own.
+	MaxServers int `json:"maxServers"`
 
 	// The verification status of the email address.
 	Verified bool `json:"verified"`

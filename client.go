@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -148,6 +149,10 @@ func (c *Client) userAgentOrDefault() string {
 }
 
 func (c *Client) newJSONRequest(ctx context.Context, method string, path string, body any) (*http.Request, error) {
+	return c.newJSONRequestWithQuery(ctx, method, path, nil, body)
+}
+
+func (c *Client) newJSONRequestWithQuery(ctx context.Context, method string, path string, query url.Values, body any) (*http.Request, error) {
 	var bodyReader io.Reader
 	if body != nil {
 		jsonBody, err := json.Marshal(body)
@@ -160,6 +165,9 @@ func (c *Client) newJSONRequest(ctx context.Context, method string, path string,
 	req, err := http.NewRequestWithContext(ctx, method, c.buildURL(path), bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	if len(query) > 0 {
+		req.URL.RawQuery = query.Encode()
 	}
 
 	req.Header.Set("Authorization", "Bearer "+c.token)
@@ -208,16 +216,27 @@ func (c *Client) sendRequest(ctx context.Context, method string, path string, bo
 	return c.doJSONRequest(ctx, method, path, body, result, false)
 }
 
-// sendActionRequest sends a server action (start/stop/restart/command,
-// player-list add/remove) and validates only the success flag. Server action
-// responses carry nullable data, so data:null is accepted.
+// sendRequestWithQuery sends a GET-style request with optional query
+// parameters. The query is kept separate from path so buildURL can still
+// append the API's trailing slash.
+func (c *Client) sendRequestWithQuery(ctx context.Context, method string, path string, query url.Values, body any, result any) error {
+	return c.doJSONRequestWithQuery(ctx, method, path, query, body, result, false)
+}
+
+// sendActionRequest sends a JSON mutation (server actions, player-list
+// add/remove, software install) and validates only the success flag. Server
+// action responses carry nullable data, so data:null is accepted.
 func (c *Client) sendActionRequest(ctx context.Context, method string, path string, body any) error {
 	var resp RawResponse[json.RawMessage]
 	return c.doJSONRequest(ctx, method, path, body, &resp, true)
 }
 
 func (c *Client) doJSONRequest(ctx context.Context, method string, path string, body any, result any, allowNullData bool) error {
-	req, err := c.newJSONRequest(ctx, method, path, body)
+	return c.doJSONRequestWithQuery(ctx, method, path, nil, body, result, allowNullData)
+}
+
+func (c *Client) doJSONRequestWithQuery(ctx context.Context, method string, path string, query url.Values, body any, result any, allowNullData bool) error {
+	req, err := c.newJSONRequestWithQuery(ctx, method, path, query, body)
 	if err != nil {
 		return err
 	}
@@ -281,9 +300,9 @@ func checkEnvelope(result any, allowNullData bool) error {
 	return nil
 }
 
-// sendEmptyRequest sends a mutation (file PUT/DELETE) with an explicit
-// content type and validates only the success flag. Empty responses carry
-// nullable data, so data:null is accepted.
+// sendEmptyRequest sends a mutation (file/server DELETE, file PUT) with an
+// explicit content type and validates only the success flag. Empty responses
+// carry nullable data, so data:null is accepted.
 func (c *Client) sendEmptyRequest(ctx context.Context, method string, path string, body any, contentType string) error {
 	if contentType == "" {
 		contentType = "application/json"

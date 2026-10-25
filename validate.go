@@ -8,12 +8,13 @@ import (
 // Validation constraints mirror the API so invalid requests
 // fail fast before network I/O:
 //
-//   - components.parameters.serverId / poolId: minLength 16, maxLength 16
+//   - components.parameters.serverId / poolId / softwareId: minLength 16, maxLength 16
 //   - components.parameters.filePath: minLength 1
 //   - postServerRam requestBody.ram: minimum 2, maximum 16
+//   - postServer requestBody.name: required, plus software or softwareType
 //
 // IDs in tests/fixtures must therefore be 16 characters (e.g. the spec
-// examples EwYiY9IAMtQBTb6U / X4iJREgqBGFSBtn0).
+// examples EwYiY9IAMtQBTb6U / X4iJREgqBGFSBtn0 / wdZhC3v1udSOxR1d).
 
 const (
 	specIDLength = 16
@@ -31,6 +32,26 @@ func validateServerID(id string) error {
 func validatePoolID(id string) error {
 	if len(id) != specIDLength {
 		return fmt.Errorf("invalid credit pool ID %q: must be %d characters", id, specIDLength)
+	}
+	return nil
+}
+
+func validateSoftwareID(id string) error {
+	if len(id) != specIDLength {
+		return fmt.Errorf("invalid software ID %q: must be %d characters", id, specIDLength)
+	}
+	return nil
+}
+
+func validateCreateServer(opts CreateServerOptions) error {
+	if strings.TrimSpace(opts.Name) == "" {
+		return fmt.Errorf("invalid server name: must not be empty")
+	}
+	if opts.Software == "" && opts.SoftwareType == "" {
+		return fmt.Errorf("either software or softwareType must be set")
+	}
+	if opts.Software != "" {
+		return validateSoftwareID(opts.Software)
 	}
 	return nil
 }
