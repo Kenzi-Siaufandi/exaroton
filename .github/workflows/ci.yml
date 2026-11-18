@@ -14,5 +14,7 @@ jobs:
         run: test -z "$(gofmt -l .)"
       - name: vet
         run: go vet ./...
+      - name: vet (integration)
+        run: go vet -tags=integration ./...
       - name: test (hermetic)
         run: go test -count=1 -timeout 60s .

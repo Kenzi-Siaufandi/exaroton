@@ -61,6 +61,11 @@ type Server struct {
 	// Permissions your account has on this server via Share Access.
 	// Always nil when you own the server.
 	Permissions []string `json:"permissions"`
+
+	// ID of the region the server is located in. Usually one of the Region
+	// constants, such as RegionEU or RegionNA. Client.ListRegions returns all
+	// regions currently available, including newly added ones.
+	Region Region `json:"region"`
 }
 
 // Players summarizes online player state.
@@ -168,7 +173,10 @@ func (s *ServerRef) GetServer(ctx context.Context) (*Server, error) {
 	return resp.Data, nil
 }
 
-// Region identifies the region a server is created in.
+// Region identifies a server region. Use the constants below (RegionEU,
+// RegionNA) for the regions known to this client. Client.ListRegions returns
+// the regions currently available, which may include newly added values;
+// unknown values can still be passed as Region("...") so they keep working.
 type Region string
 
 const (
@@ -187,12 +195,17 @@ type CreateServerOptions struct {
 	// ID of the software to install. See ListSoftware for options.
 	Software string `json:"software,omitempty"`
 
-	// Latest version of a software type, e.g. SoftwareTypeVanilla.
+	// Latest version of a software type. Use one of the SoftwareType constants,
+	// e.g. SoftwareTypeVanilla; ListSoftware shows what is available.
 	SoftwareType SoftwareType `json:"softwareType,omitempty"`
 
 	MOTD     string `json:"motd,omitempty"`
 	Timezone string `json:"timezone,omitempty"`
-	Region   Region `json:"region,omitempty"`
+
+	// Region to create the server in. Use one of the Region constants, e.g.
+	// RegionEU or RegionNA, or an ID from Client.ListRegions. Empty or unknown
+	// values let the API choose a region based on Timezone.
+	Region Region `json:"region,omitempty"`
 }
 
 // CreateServer creates a new server owned by the account. A 413 response
@@ -499,7 +512,8 @@ func (s *ServerRef) list(name string) *PlayerListRef {
 }
 
 // PlayerList returns a reference to a player list by name (e.g. "whitelist").
-// Use GetAvailablePlayerLists to discover valid names.
+// Prefer the typed helpers Whitelist, Ops, BannedPlayers and BannedIPs for the
+// built-in lists; use GetAvailablePlayerLists to discover other valid names.
 func (s *ServerRef) PlayerList(name string) *PlayerListRef {
 	return s.list(name)
 }
@@ -788,6 +802,14 @@ type Config struct {
 	Label   string   `json:"label"`
 	Type    string   `json:"type"`
 	Options []string `json:"options,omitempty"`
+
+	// Min and Max bound integer/float options, nil for other types.
+	Min *float64 `json:"min,omitempty"`
+	Max *float64 `json:"max,omitempty"`
+
+	// Step is the suggested increment for UI +/- controls on integer/float
+	// options. It is not enforced server-side.
+	Step *float64 `json:"step,omitempty"`
 }
 
 // Config fetches parsed config options. Whether a file is parseable is

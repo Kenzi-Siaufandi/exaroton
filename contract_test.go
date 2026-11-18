@@ -151,7 +151,7 @@ func TestFileWriteEmptyResponse(t *testing.T) {
 
 func TestHandModelsRoundTrip(t *testing.T) {
 	// Spec example server must decode into the shipped hand-written types.
-	raw := `{"id":"EwYiY9IAMtQBTb6U","name":"example","address":"example.exaroton.me","motd":"hi","status":1,"host":null,"port":null,"players":{"max":20,"count":0,"list":[]},"software":{"id":"kb4p09ABvLjxzedx","name":"Vanilla","version":"1.16.5","type":"vanilla","launcher":null,"addons":["plugin"]},"shared":false,"permissions":["console"]}`
+	raw := `{"id":"EwYiY9IAMtQBTb6U","name":"example","address":"example.exaroton.me","motd":"hi","status":1,"host":null,"port":null,"players":{"max":20,"count":0,"list":[]},"software":{"id":"kb4p09ABvLjxzedx","name":"Vanilla","version":"1.16.5","type":"vanilla","launcher":null,"addons":["plugin"]},"shared":false,"permissions":["console"],"region":"eu"}`
 	var s Server
 	if err := json.Unmarshal([]byte(raw), &s); err != nil {
 		t.Fatal(err)
@@ -171,12 +171,123 @@ func TestHandModelsRoundTrip(t *testing.T) {
 	if len(s.Permissions) != 1 || s.Permissions[0] != "console" {
 		t.Fatalf("unexpected permissions: %+v", s.Permissions)
 	}
+	if s.Region != RegionEU {
+		t.Fatalf("Server.Region = %q", s.Region)
+	}
 	var fi File
 	if err := json.Unmarshal([]byte(`{"path":"world/playerdata","name":"playerdata","isDirectory":true,"size":4096}`), &fi); err != nil {
 		t.Fatal(err)
 	}
 	if !fi.IsDirectory || fi.Size != 4096 {
 		t.Fatalf("unexpected file: %+v", fi)
+	}
+}
+
+func TestNewSpecModelsRoundTrip(t *testing.T) {
+	var backup Backup
+	if err := json.Unmarshal([]byte(`{"id":"Xy7zAb3dEf6hIj9k","name":null,"type":null,"status":"creating","server":"EwYiY9IAMtQBTb6U","software":null,"size":null,"created":null,"backupAccount":"Ab3dEf6hIj9kLm2n"}`), &backup); err != nil {
+		t.Fatal(err)
+	}
+	if backup.ID != "Xy7zAb3dEf6hIj9k" || backup.Status != BackupStatusCreating {
+		t.Fatalf("unexpected backup: %+v", backup)
+	}
+	if backup.Name != nil || backup.Type != nil || backup.Software != nil || backup.Size != nil || backup.Created != nil {
+		t.Fatalf("nullable backup fields should be nil: %+v", backup)
+	}
+	if backup.BackupAccount == nil || *backup.BackupAccount != "Ab3dEf6hIj9kLm2n" {
+		t.Fatalf("backupAccount = %v", backup.BackupAccount)
+	}
+
+	var account BackupAccount
+	if err := json.Unmarshal([]byte(`{"id":"Ab3dEf6hIj9kLm2n","name":"example@gmail.com","provider":"google-drive","storage":{"used":null,"limit":16106127360}}`), &account); err != nil {
+		t.Fatal(err)
+	}
+	if account.Provider != BackupProviderGoogleDrive || account.Storage.Used != nil {
+		t.Fatalf("unexpected backup account: %+v", account)
+	}
+	if account.Storage.Limit == nil || *account.Storage.Limit != 16106127360 {
+		t.Fatalf("storage limit = %v", account.Storage.Limit)
+	}
+
+	var settings BackupSettings
+	if err := json.Unmarshal([]byte(`{"enabled":true,"limit":5,"interval":86400,"failed":0}`), &settings); err != nil {
+		t.Fatal(err)
+	}
+	if !settings.Enabled || settings.Limit != 5 || settings.Interval != BackupInterval24Hours {
+		t.Fatalf("unexpected settings: %+v", settings)
+	}
+
+	var domain Domain
+	if err := json.Unmarshal([]byte(`{"id":"Pq4rSt7uVw0xYz3a","domain":"play.example.com","status":"linked","protocol":"https","port":80,"checkedTime":null,"createdTime":1763251200,"nameservers":["galileo.exaroton.com","columbus.exaroton.com"]}`), &domain); err != nil {
+		t.Fatal(err)
+	}
+	if domain.Status != DomainStatusLinked || domain.CheckedTime != nil {
+		t.Fatalf("unexpected domain: %+v", domain)
+	}
+	if len(domain.Nameservers) != 2 || domain.Nameservers[1] != "columbus.exaroton.com" {
+		t.Fatalf("nameservers = %v", domain.Nameservers)
+	}
+
+	var access Access
+	if err := json.Unmarshal([]byte(`{"id":"Hj8kLm2nPq4rSt7u","account":{"id":"EwYiY9IAMtQBTb6s","name":"example"},"permissions":["server","stop"]}`), &access); err != nil {
+		t.Fatal(err)
+	}
+	if access.Account.ID != "EwYiY9IAMtQBTb6s" || len(access.Permissions) != 2 {
+		t.Fatalf("unexpected access: %+v", access)
+	}
+	if access.Permissions[0] != PermissionServer || access.Permissions[1] != PermissionStop {
+		t.Fatalf("permissions = %v", access.Permissions)
+	}
+
+	var page TransactionPage
+	if err := json.Unmarshal([]byte(`{"page":1,"lastPage":2,"total":21,"items":[{"id":"Tr4nS4cT10nId123","type":"run","credits":-1.5,"rate":1,"interval":3600,"amount":4,"active":false,"paid":true,"startTime":1763247600,"endTime":null,"account":"EwYiY9IAMtQBTb6s","pool":null,"server":"EwYiY9IAMtQBTb6U"}]}`), &page); err != nil {
+		t.Fatal(err)
+	}
+	if page.Page != 1 || page.LastPage != 2 || page.Total != 21 || len(page.Items) != 1 {
+		t.Fatalf("unexpected page: %+v", page)
+	}
+	tx := page.Items[0]
+	if tx.Rate == nil || *tx.Rate != 1 || tx.Interval == nil || *tx.Interval != 3600 {
+		t.Fatalf("unexpected transaction: %+v", tx)
+	}
+	if tx.EndTime != nil || tx.Pool != nil || tx.Active {
+		t.Fatalf("nullable transaction fields should be nil/inactive: %+v", tx)
+	}
+
+	var props ServerProperties
+	if err := json.Unmarshal([]byte(`{"autostop":true,"autostop-time":10,"autostart":false,"autostart-type":"any","launcher-autostart":false,"launcher-autostart-type":"ops","enable-lobby":true,"auto-update":"ask","force-upgrade":false}`), &props); err != nil {
+		t.Fatal(err)
+	}
+	if props.AutoStop == nil || !*props.AutoStop || props.AutoStart == nil || *props.AutoStart {
+		t.Fatalf("unexpected properties: %+v", props)
+	}
+	if props.AutoStartType == nil || *props.AutoStartType != AutoStartTypeAny {
+		t.Fatalf("autostart-type = %v", props.AutoStartType)
+	}
+	if props.LauncherAutoStartType == nil || *props.LauncherAutoStartType != AutoStartTypeOps {
+		t.Fatalf("launcher-autostart-type = %v", props.LauncherAutoStartType)
+	}
+	if props.AutoUpdate == nil || *props.AutoUpdate != AutoUpdateAsk {
+		t.Fatalf("auto-update = %v", props.AutoUpdate)
+	}
+	if props.ForceUpgrade == nil || *props.ForceUpgrade {
+		t.Fatalf("force-upgrade = %v", props.ForceUpgrade)
+	}
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(`{"key":"max-players","value":20,"label":"Max Players","type":"integer","options":null,"min":1,"max":100,"step":1}`), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Min == nil || *cfg.Min != 1 || cfg.Max == nil || *cfg.Max != 100 || cfg.Step == nil || *cfg.Step != 1 {
+		t.Fatalf("unexpected config bounds: %+v", cfg)
+	}
+
+	var region RegionInfo
+	if err := json.Unmarshal([]byte(`{"id":"eu","name":"Europe"}`), &region); err != nil {
+		t.Fatal(err)
+	}
+	if region.ID != "eu" || region.Name != "Europe" {
+		t.Fatalf("unexpected region: %+v", region)
 	}
 }
 
