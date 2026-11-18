@@ -65,7 +65,7 @@ type Client struct {
 
 // DefaultUserAgent is sent on every REST and websocket handshake unless
 // overridden with WithUserAgent.
-const DefaultUserAgent = "go-exaroton-api@1.0"
+const DefaultUserAgent = "go-exaroton-api@0.3.0"
 
 // Option configures a Client.
 type Option func(*Client) error
